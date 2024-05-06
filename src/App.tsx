@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import "./App.css";
-import { Stage, Layer, Rect, Circle } from "react-konva";
+
 import NumberBlock from "./components/NumberBlock";
 
 function App() {
