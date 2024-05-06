@@ -1,4 +1,3 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 
@@ -9,6 +8,8 @@ import StarPage from "./pages/star";
 import RectPage from "./pages/rect";
 import BaseLayout from "./components/Layouts/BaseLayout";
 import AssetPage from "./pages/asset";
+import { Provider } from "react-redux";
+import { store } from "./redux/store";
 
 const router = createBrowserRouter([
   {
@@ -32,9 +33,9 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
 );
 root.render(
-  <React.StrictMode>
+  <Provider store={store}>
     <BaseLayout>
       <RouterProvider router={router} />
     </BaseLayout>
-  </React.StrictMode>
+  </Provider>
 );
