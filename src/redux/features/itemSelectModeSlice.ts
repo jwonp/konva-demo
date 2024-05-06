@@ -35,7 +35,8 @@ export const { setMouseDown, setKeyDownShift, setKeyDownCtrl } =
   itemSelectModeSlice.actions;
 
 export const getItemSelectModeState = (state: RootState) =>
-  state.itemSelectMode.isMouseDown;
+  state.itemSelectMode;
+
 export const getIsMouseDown = (state: RootState) =>
   state.itemSelectMode.isMouseDown;
 export const getIsKeyDownShift = (state: RootState) =>

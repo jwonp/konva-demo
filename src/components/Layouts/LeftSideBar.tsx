@@ -1,80 +1,41 @@
 import {
   useEffect,
-  useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
 } from "react";
-import ItemListBar from "../LeftSideBar/ItemListBar";
-
-export type ItemType = "triangle" | "cube" | "circle";
-export type Item = {
-  name: string;
-  type: ItemType;
-};
-
-const addItem = (stringifiedItem: string) => {
-  const storedStringifiedItems =
-    window.localStorage.getItem("items") ?? JSON.stringify([]);
-
-  const storedItems = JSON.parse(storedStringifiedItems) as Item[];
-  const item = JSON.parse(stringifiedItem) as Item;
-
-  const duplicatedItem = storedItems.find(
-    (storedItem) => storedItem.name === item.name
-  );
-  if (duplicatedItem === undefined) {
-    storedItems.push(item);
-  }
-
-  window.localStorage.setItem("items", JSON.stringify(storedItems));
-
-  window.dispatchEvent(
-    new StorageEvent("storage", {
-      key: "items",
-      newValue: stringifiedItem,
-    })
-  );
-};
-
-const store = {
-  getSnapshot: () => window.localStorage.getItem("items") ?? JSON.stringify([]),
-
-  subscribe: (listener: () => void) => {
-    window.addEventListener("storage", listener);
-    return () => void window.removeEventListener("storage", listener);
-  },
-};
+import {
+  Item,
+  ItemType,
+  addItem,
+  store as itemStore,
+} from "../../storage/item";
+import { useAppDispatch } from "../../redux/hooks";
+import { setItems } from "../../redux/features/itemSlice";
+import ItemList from "../LeftSideBar/ItemList";
 
 const LeftSideBar = () => {
-  const [selectedItem, setSelectedItem] = useState<number>(-1);
-  const [items, setItems] = useState<Item[]>([]);
+  const dispatch = useAppDispatch();
+
   const $nameRef = useRef<HTMLInputElement>(null);
   const $typeRef = useRef<HTMLSelectElement>(null);
   const stringifiedItems = useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot
+    itemStore.subscribe,
+    itemStore.getSnapshot
   );
-  const itemList = useMemo(() => {
-    return items.map((item) => (
-      <ItemListBar
-        key={`item-${item.name}`}
-        name={item.name}
-        type={item.type}
-      />
-    ));
-  }, [items]);
 
   useEffect(() => {
-    setItems(() => {
-      const items = JSON.parse(stringifiedItems) as Item[];
-      return items.filter((item) => item.name && item.type);
-    });
+    const newItems = (JSON.parse(stringifiedItems) as Item[]).filter(
+      (item) => item.name && item.type
+    );
+
+    dispatch(setItems(newItems));
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stringifiedItems]);
 
   return (
     <div className="w-full h-full">
-      <div className="p-2">
+      <div className="flex flex-col h-full p-2">
         <section>
           <button className="w-full mb-2 bg-green-600 rounded">
             <p
@@ -141,13 +102,8 @@ const LeftSideBar = () => {
             </div>
           </form>
         </section>
-        <section>
-          <div>
-            <p className="mt-2 mb-1 text-white font-bold border-b ">
-              아이템 목록
-            </p>
-          </div>
-          <div>{itemList}</div>
+        <section className="flex flex-col grow">
+          <ItemList />
         </section>
       </div>
     </div>
