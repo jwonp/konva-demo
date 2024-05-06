@@ -7,11 +7,17 @@ import App from "./App";
 
 import StarPage from "./pages/star";
 import RectPage from "./pages/rect";
+import BaseLayout from "./components/Layouts/BaseLayout";
+import AssetPage from "./pages/asset";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App></App>,
+  },
+  {
+    path: "/assets",
+    element: <AssetPage></AssetPage>,
   },
   {
     path: "/star",
@@ -27,6 +33,8 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <BaseLayout>
+      <RouterProvider router={router} />
+    </BaseLayout>
   </React.StrictMode>
 );
