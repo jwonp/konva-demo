@@ -1,7 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "@/redux/store";
-import { Item } from "@/storage/item";
+import { Item, setNewItems } from "../../../storage/item";
 
 export interface MoveItemActionPayload {
   from: number[];
@@ -24,6 +24,11 @@ export const itemSlice = createSlice({
     setItems: (state, action: PayloadAction<Item[]>) => {
       state.items = [...action.payload];
     },
+    setItemsAndSave: (state, action: PayloadAction<Item[]>) => {
+      state.items = [...action.payload];
+      setNewItems(JSON.stringify(action.payload));
+    },
+
     moveItem: (state, action: PayloadAction<MoveItemActionPayload>) => {
       if (action.payload.from.includes(-1) || action.payload.to < 0) {
         return;
@@ -45,7 +50,8 @@ export const itemSlice = createSlice({
   },
 });
 
-export const { setItems, moveItem, resetItems } = itemSlice.actions;
+export const { setItems, setItemsAndSave, moveItem, resetItems } =
+  itemSlice.actions;
 
 export const getItemState = (state: RootState) => state.item;
 export const getItems = (state: RootState) => state.item.items;

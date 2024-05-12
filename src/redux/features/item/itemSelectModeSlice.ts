@@ -3,13 +3,13 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "@/redux/store";
 
 interface MouseClickState {
-  isMouseDown: boolean;
+  mouseDownIndex: number;
   isKeyDownShift: boolean;
   isKeyDownCtrl: boolean;
 }
 
 const initialState: MouseClickState = {
-  isMouseDown: false,
+  mouseDownIndex: -1,
   isKeyDownShift: false,
   isKeyDownCtrl: false,
 };
@@ -19,8 +19,8 @@ export const itemSelectModeSlice = createSlice({
 
   initialState,
   reducers: {
-    setMouseDown: (state, action: PayloadAction<boolean>) => {
-      state.isMouseDown = action.payload;
+    setMouseDownIndex: (state, action: PayloadAction<number>) => {
+      state.mouseDownIndex = action.payload;
     },
     setKeyDownShift: (state, action: PayloadAction<boolean>) => {
       state.isKeyDownShift = action.payload;
@@ -31,14 +31,14 @@ export const itemSelectModeSlice = createSlice({
   },
 });
 
-export const { setMouseDown, setKeyDownShift, setKeyDownCtrl } =
+export const { setMouseDownIndex, setKeyDownShift, setKeyDownCtrl } =
   itemSelectModeSlice.actions;
 
 export const getItemSelectModeState = (state: RootState) =>
   state.itemSelectMode;
 
-export const getIsMouseDown = (state: RootState) =>
-  state.itemSelectMode.isMouseDown;
+export const getMouseDownIndex = (state: RootState) =>
+  state.itemSelectMode.mouseDownIndex;
 export const getIsKeyDownShift = (state: RootState) =>
   state.itemSelectMode.isKeyDownShift;
 export const getIsKeyDownCtrl = (state: RootState) =>
