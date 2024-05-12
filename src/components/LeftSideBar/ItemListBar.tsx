@@ -1,22 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import {
-  getIsMouseDown,
-  setMouseDown,
-} from "../../redux/features/itemSelectModeSlice";
+  getMouseDownIndex,
+  setMouseDownIndex,
+} from "../../redux/features/item/itemSelectModeSlice";
 import { Item, ItemType } from "../../storage/item";
 import {
   getMoveToIndex,
-  getSelectedItemIndex,
-  resetItemControl,
+  getSelectedItemIndexs,
   setMoveToIndex,
-  setSelectedItemIndex,
-} from "../../redux/features/itemControlSlice";
+  setFocusedItemIndex,
+  setSelectedItemIndexByModifierKey,
+  getFocusedItemIndex,
+  getDragEventClearId,
+  setDragEventClearId,
+  setIsOnDrag,
+  getIsOnDrag,
+  getItemListScrollTop,
+} from "../../redux/features/item/itemControlSlice";
+
+import { getPressedModifierKey } from "../../utils/keyEventHandler";
+import { setItemMoveNavigatorBarHeight } from "../../redux/features/item/itemMoveNavigatorSlice";
 import {
-  MoveItemActionPayload,
-  moveItem,
-} from "../../redux/features/itemSlice";
+  getItems,
+  setItems,
+  setItemsAndSave,
+} from "../../redux/features/item/itemSlice";
 
 interface ItemListBarProps extends Item {
   index: number;
@@ -31,118 +41,191 @@ const icon: IconType = {
   circle: "/icons/circle.svg",
 };
 
-const MOUSE_ON = {
-  TOP: "top",
-  BOTTOM: "bottom",
-  NONE: "none",
-} as const;
-
-const BORDER_COLOR = {
-  TOP: "border-t-2 border-t-red-300",
-  BOTTOM: "border-b-2 border-b-red-300",
-  NONE: "",
-} as const;
 const SELECTED_COLOR = {
   SELECTED: "bg-slate-500",
   NONE: "",
 } as const;
 
-type MouseOn = (typeof MOUSE_ON)[keyof typeof MOUSE_ON];
-type BorderColor = (typeof BORDER_COLOR)[keyof typeof BORDER_COLOR];
 type SelectedColor = (typeof SELECTED_COLOR)[keyof typeof SELECTED_COLOR];
 
 const ItemListBar = ({ name, type, index }: ItemListBarProps) => {
   const dispatch = useAppDispatch();
-  const selectedItemIndex = useAppSelector(getSelectedItemIndex);
+  const $ListBarRef = useRef<HTMLDivElement>(null);
+  const $inputRef = useRef<HTMLParagraphElement>(null);
+  const items = useAppSelector(getItems);
+  const focusedItemIndex = useAppSelector(getFocusedItemIndex);
+  const selectedItemIndexs = useAppSelector(getSelectedItemIndexs);
   const moveToIndex = useAppSelector(getMoveToIndex);
-  const isMouseDown = useAppSelector(getIsMouseDown);
-  const [mouseOn, setMouseOn] = useState<MouseOn>(MOUSE_ON.NONE);
-  const [borderColor, setBorderColor] = useState<BorderColor>(
-    BORDER_COLOR.NONE
-  );
+  const mouseDownIndex = useAppSelector(getMouseDownIndex);
+  const isOnDrag = useAppSelector(getIsOnDrag);
+  const dragEventClearId = useAppSelector(getDragEventClearId);
+  const itemListScrollTop = useAppSelector(getItemListScrollTop);
+
+  const [newItemMoveNavigatorBarHeight, setNewItemMoveNavigatorBarHeight] =
+    useState<number>(0);
+  const [isContentEditable, setContentEditable] = useState<boolean>(false);
   const [selectedColor, setSelectedColor] = useState<SelectedColor>(
     SELECTED_COLOR.NONE
   );
 
   useEffect(() => {
-    if (mouseOn === MOUSE_ON.NONE) {
-      setBorderColor(BORDER_COLOR.NONE);
-      return;
+    // isContentEditable이 되면 focus 되도록 하는 hook
+    if ($inputRef) {
+      $inputRef.current?.focus();
     }
-    if (mouseOn === MOUSE_ON.TOP) {
-      setBorderColor(BORDER_COLOR.TOP);
-      return;
-    }
-    if (mouseOn === MOUSE_ON.BOTTOM) {
-      setBorderColor(BORDER_COLOR.BOTTOM);
-      return;
-    }
-  }, [mouseOn]);
+  }, [isContentEditable]);
 
   useEffect(() => {
-    if (index === selectedItemIndex) {
+    // 선택된 아이템 배경색 변화 관련 hook
+    if (selectedItemIndexs.includes(index)) {
       setSelectedColor(SELECTED_COLOR.SELECTED);
       return;
     }
     setSelectedColor(SELECTED_COLOR.NONE);
-  }, [index, selectedItemIndex]);
+  }, [index, selectedItemIndexs]);
+
+  useEffect(() => {
+    if ($ListBarRef.current) {
+      if (mouseDownIndex === index) {
+        dispatch(setItemMoveNavigatorBarHeight(-1));
+      }
+      if (isOnDrag && moveToIndex === index) {
+        dispatch(
+          setItemMoveNavigatorBarHeight(
+            $ListBarRef.current.offsetTop - itemListScrollTop
+          )
+        );
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnDrag, itemListScrollTop]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
-    dispatch(setMouseDown(true));
-  };
-  const handleMouseUp = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
-    const moveItemAction: MoveItemActionPayload = {
-      from: [selectedItemIndex],
-      to: moveToIndex,
-    };
-
-    dispatch(moveItem(moveItemAction));
-    dispatch(setSelectedItemIndex(moveToIndex));
-    dispatch(setMouseDown(false));
-    setMouseOn(MOUSE_ON.NONE);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
-    if (isMouseDown === false) {
-      return;
-    }
-
+    dispatch(setMouseDownIndex(index));
     const barHeight = e.currentTarget.offsetHeight;
     const mouseY = e.nativeEvent.offsetY;
 
-    dispatch(setMoveToIndex(index));
-    if (mouseY < barHeight / 2) {
-      setMouseOn("top");
+    const moveToBottom = mouseY >= barHeight / 2 ? 1 : 0;
+    dispatch(setMoveToIndex(index + moveToBottom));
+
+    if ($ListBarRef.current) {
+      dispatch(
+        setItemMoveNavigatorBarHeight(
+          $ListBarRef.current.offsetTop +
+            $ListBarRef.current.offsetHeight * moveToBottom -
+            itemListScrollTop
+        )
+      );
+    }
+    if (selectedItemIndexs.includes(index) === false) {
       return;
     }
-
-    setMouseOn("bottom");
+    const clearId = setTimeout(() => {
+      dispatch(setIsOnDrag(true));
+    }, 300);
+    dispatch(setDragEventClearId(clearId));
   };
 
-  const handleMouseLeave = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
-    dispatch(resetItemControl());
-    setMouseOn("none");
+  const handleMouseUp = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
+    if (isOnDrag) {
+      console.log({ selectedItemIndexs, mouseDownIndex, index, moveToIndex });
+
+      // dispatch(
+      //   setItemMoveNavigatorBarHeight((e.target as HTMLElement).offsetTop)
+      // );
+    }
+    // const moveItemAction: MoveItemActionPayload = {
+    //   from: [...selectedItemIndexs],
+    //   to: moveToIndex,
+    // };
+
+    // dispatch(moveItem(moveItemAction));
+    if (dragEventClearId) {
+      clearTimeout(dragEventClearId);
+      dispatch(setDragEventClearId(null));
+    }
+    dispatch(setMouseDownIndex(-1));
+
+    dispatch(setIsOnDrag(false));
   };
 
   const handleMouseClick = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
-    dispatch(setSelectedItemIndex(index));
-  };
+    const pressedKey = getPressedModifierKey(e);
 
+    dispatch(setSelectedItemIndexByModifierKey({ pressedKey, index }));
+    dispatch(setFocusedItemIndex(index));
+  };
+  const handleInputDoubleClick = (
+    e: React.MouseEvent<HTMLElement, MouseEvent>
+  ) => {
+    if (focusedItemIndex === index) {
+      setContentEditable(true);
+    }
+  };
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
+    if (mouseDownIndex === -1) {
+      return;
+    }
+    if (isOnDrag) {
+      const barHeight = e.currentTarget.offsetHeight;
+      const mouseY = e.nativeEvent.offsetY;
+
+      const moveToBottom = mouseY >= barHeight / 2 ? 1 : 0;
+      dispatch(setMoveToIndex(index + moveToBottom));
+
+      if ($ListBarRef.current) {
+        dispatch(
+          setItemMoveNavigatorBarHeight(
+            $ListBarRef.current.offsetTop +
+              $ListBarRef.current.offsetHeight * moveToBottom -
+              itemListScrollTop
+          )
+        );
+      }
+    }
+    // const barHeight = e.currentTarget.offsetHeight;
+    // const mouseY = e.nativeEvent.offsetY;
+
+    // dispatch(setMoveToIndex(index));
+    // if (mouseY < barHeight / 2) {
+    //   return;
+    // }
+  };
+  const handleMouseLeave = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {};
+
+  const handleBlur = (e: React.FocusEvent<HTMLElement, Element>) => {
+    console.log(items[index]);
+    const newItems = [...items];
+    if ($inputRef.current) {
+      newItems[index] = { name: $inputRef.current.innerText, type };
+    }
+    dispatch(setItemsAndSave(newItems));
+    setContentEditable(false);
+  };
   return (
     <article
-      className={`flex gap-2 p-0.5 bg-green-800 select-none ${borderColor} ${selectedColor}`}
-      onMouseUp={handleMouseUp}
+      ref={$ListBarRef}
+      className={`flex gap-2 p-0.5 bg-green-800 select-none ${selectedColor}`}
       onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onClick={handleMouseClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      onClick={handleMouseClick}>
+      onBlur={handleBlur}>
       <img
         src={icon[type]}
         alt=""
         width={16}
         height={16}
       />
-      <p className="text-white">{name}</p>
+      <p
+        ref={$inputRef}
+        className="text-white"
+        contentEditable={isContentEditable}
+        onDoubleClick={handleInputDoubleClick}
+        suppressContentEditableWarning={true}>
+        {name}
+      </p>
     </article>
   );
 };
